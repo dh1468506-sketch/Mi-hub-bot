@@ -27,13 +27,17 @@ async def on_ready():
 )
 async def submit(interaction: discord.Interaction, nombre: str, juego: str, archivo: discord.Attachment):
     await interaction.response.defer(ephemeral=True)
+    
+    # Intentar leer el archivo
     try:
         contenido_bytes = await archivo.read()
         contenido_texto = contenido_bytes.decode('utf-8')
-    except Exception:
-        await interaction.followup.send("❌ Error al leer el archivo. Asegúrate de que sea un texto válido.", ephemeral=True)
+    except Exception as e:
+        # Aquí mostramos el error exacto para saber qué pasa
+        await interaction.followup.send(f"❌ Error al leer el archivo: {e}. Asegúrate de que sea un texto válido.", ephemeral=True)
         return
 
+    # Preparar datos para el backend
     data = {
         "nombre": nombre,
         "juego": juego,
@@ -41,14 +45,15 @@ async def submit(interaction: discord.Interaction, nombre: str, juego: str, arch
         "codigo": contenido_texto
     }
 
+    # Enviar al backend
     try:
         respuesta = requests.post(BACKEND_URL, json=data)
         if respuesta.status_code == 200:
             await interaction.followup.send(f"✅ ¡Gracias! Tu script **{nombre}** fue enviado a revisión.", ephemeral=True)
         else:
-            await interaction.followup.send(f"❌ Error en el servidor. Inténtalo más tarde.", ephemeral=True)
+            await interaction.followup.send(f"❌ Error en el servidor (Código: {respuesta.status_code}). Inténtalo más tarde.", ephemeral=True)
     except Exception as e:
-        await interaction.followup.send(f"❌ No se pudo conectar con el servidor.", ephemeral=True)
+        await interaction.followup.send(f"❌ No se pudo conectar con el servidor: {e}", ephemeral=True)
 
 if __name__ == "__main__":
     if TOKEN:
