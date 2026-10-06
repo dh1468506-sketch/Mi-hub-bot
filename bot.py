@@ -28,13 +28,17 @@ async def on_ready():
 async def submit(interaction: discord.Interaction, nombre: str, juego: str, archivo: discord.Attachment):
     await interaction.response.defer(ephemeral=True)
     
-    # Intentar leer el archivo
+    # Intentar leer el archivo con tolerancia a errores de codificación
     try:
         contenido_bytes = await archivo.read()
-        contenido_texto = contenido_bytes.decode('utf-8')
+        try:
+            # Primero intentamos leerlo como UTF-8 (estándar moderno)
+            contenido_texto = contenido_bytes.decode('utf-8')
+        except UnicodeDecodeError:
+            # Si falla, lo leemos como Latin-1 (acepta acentos y caracteres especiales)
+            contenido_texto = contenido_bytes.decode('latin-1')
     except Exception as e:
-        # Aquí mostramos el error exacto para saber qué pasa
-        await interaction.followup.send(f"❌ Error al leer el archivo: {e}. Asegúrate de que sea un texto válido.", ephemeral=True)
+        await interaction.followup.send(f"❌ Error al leer el archivo: {e}", ephemeral=True)
         return
 
     # Preparar datos para el backend
