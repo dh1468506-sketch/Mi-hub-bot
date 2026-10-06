@@ -19,6 +19,9 @@ async def on_ready():
     except Exception as e:
         print(f"❌ Error al sincronizar comandos: {e}")
 
+# ==========================================
+# COMANDO /submit - Enviar un script
+# ==========================================
 @bot.tree.command(name="submit", description="Envía tu script para que sea revisado")
 @app_commands.describe(
     nombre="El nombre de tu script",
@@ -32,10 +35,8 @@ async def submit(interaction: discord.Interaction, nombre: str, juego: str, arch
     try:
         contenido_bytes = await archivo.read()
         try:
-            # Primero intentamos leerlo como UTF-8 (estándar moderno)
             contenido_texto = contenido_bytes.decode('utf-8')
         except UnicodeDecodeError:
-            # Si falla, lo leemos como Latin-1 (acepta acentos y caracteres especiales)
             contenido_texto = contenido_bytes.decode('latin-1')
     except Exception as e:
         await interaction.followup.send(f"❌ Error al leer el archivo: {e}", ephemeral=True)
@@ -59,6 +60,38 @@ async def submit(interaction: discord.Interaction, nombre: str, juego: str, arch
     except Exception as e:
         await interaction.followup.send(f"❌ No se pudo conectar con el servidor: {e}", ephemeral=True)
 
+# ==========================================
+# COMANDO /approve - Aprobar un script y subirlo a GitHub
+# ==========================================
+@bot.tree.command(name="approve", description="Aprueba un script pendiente y lo sube a GitHub")
+@app_commands.describe(id_script="El ID del script que aparece en el embed de moderación")
+@app_commands.checks.has_permissions(administrator=True)
+async def approve(interaction: discord.Interaction, id_script: str):
+    await interaction.response.defer(ephemeral=True)
+    
+    url = f"{BACKEND_URL.replace('/submit', '')}/approve/{id_script}"
+    
+    try:
+        respuesta = requests.post(url)
+        if respuesta.status_code == 200:
+            data = respuesta.json()
+            if data.get("status") == "aprobado":
+                await interaction.followup.send(f"✅ Script **{id_script}** aprobado y subido a GitHub correctamente.", ephemeral=True)
+            else:
+                await interaction.followup.send(f"❌ Error: {data.get('error', 'Desconocido')}", ephemeral=True)
+        else:
+            await interaction.followup.send(f"❌ Error en el servidor. Código: {respuesta.status_code}", ephemeral=True)
+    except Exception as e:
+        await interaction.followup.send(f"❌ No se pudo conectar con el backend: {e}", ephemeral=True)
+
+@approve.error
+async def approve_error(interaction: discord.Interaction, error):
+    if isinstance(error, app_commands.MissingPermissions):
+        await interaction.response.send_message("❌ No tienes permisos para usar este comando.", ephemeral=True)
+
+# ==========================================
+# Iniciar el bot
+# ==========================================
 if __name__ == "__main__":
     if TOKEN:
         bot.run(TOKEN)
